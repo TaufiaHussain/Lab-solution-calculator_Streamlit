@@ -59,17 +59,28 @@ def signup(email: str, password: str, full_name: str = ""):
     })
 
 def get_subscription_plan(user_id: str) -> str:
-    """Return 'free' if no row, else the real plan."""
-    res = (
-        supabase.table("subscriptions")
-        .select("plan")
-        .eq("user_id", user_id)
-        .single()
-        .execute()
-    )
-    if res.data and "plan" in res.data:
-        return res.data["plan"]
-    return "free"
+    """
+    Try to read the user's plan from public.subscriptions.
+    If table is protected / empty / missing → fall back to 'free'.
+    """
+    try:
+        resp = (
+            supabase
+            .table("subscriptions")
+            .select("plan")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = resp.data or []
+        if len(data) > 0 and "plan" in data[0]:
+            return data[0]["plan"]
+        return "free"
+    except Exception as e:
+        # IMPORTANT: don't crash the app here
+        st.info("Could not read subscription from Supabase → using FREE.")
+        st.write(e)  # you can remove this later
+        return "free"
 
 # ------------------------------------------------------------
 # 4) LOGIN GATE
