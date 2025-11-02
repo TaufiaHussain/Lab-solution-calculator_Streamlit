@@ -58,6 +58,17 @@ def signup(email: str, password: str, full_name: str = ""):
         }
     })
 
+def logout():
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    # clear session stuff
+    for key in ["user", "plan"]:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
+    
 def get_subscription_plan(user_id: str) -> str:
     """
     Try to read the user's plan from public.subscriptions.
@@ -260,6 +271,15 @@ with st.sidebar.expander("👤 User profile / favorites", expanded=False):
             st.write("- ", r)
     else:
         st.write("No saved reagents yet.")
+
+with st.sidebar:
+    user = st.session_state.get("user")
+    if user:
+        st.markdown(f"**Logged in as:** {user.email}")
+        if st.button("Logout"):
+            logout()
+    else:
+        st.info("Please log in to use Pro tools.")
 
 # ------------------------------------------------------------
 # MAIN MODE SELECTOR
