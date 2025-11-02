@@ -23,6 +23,24 @@ supabase = get_supabase()
 # temporary: pretend this is the logged-in user
 DEMO_USER_ID = "e29394b6-5f7a-4aa7-8d30-9155165733e3"
 
+def load_reagents(user_id: str):
+    data = (
+        supabase.table("reagents")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return data.data or []
+
+if "fav_reagents" not in st.session_state:
+    st.session_state["fav_reagents"] = []
+
+reagents_db = load_reagents(DEMO_USER_ID)
+for r in reagents_db:
+    if r["name"] not in st.session_state["fav_reagents"]:
+        st.session_state["fav_reagents"].append(r["name"])
+
 # ------------------------------------------------------------
 # 3) Auth helpers
 # ------------------------------------------------------------
@@ -103,23 +121,7 @@ if plan != "pro":
     st.info("Ask admin to upgrade you in Supabase → public.subscriptions, or connect Stripe later.")
     st.stop()
 
-def load_reagents(user_id: str):
-    data = (
-        supabase.table("reagents")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return data.data or []
 
-if "fav_reagents" not in st.session_state:
-    st.session_state["fav_reagents"] = []
-
-reagents_db = load_reagents(DEMO_USER_ID)
-for r in reagents_db:
-    if r["name"] not in st.session_state["fav_reagents"]:
-        st.session_state["fav_reagents"].append(r["name"])
     
 # ------------------------------------------------------------
 # optional PDF
