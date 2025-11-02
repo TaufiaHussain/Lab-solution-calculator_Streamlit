@@ -23,6 +23,86 @@ supabase = get_supabase()
 # temporary: pretend this is the logged-in user
 DEMO_USER_ID = "e29394b6-5f7a-4aa7-8d30-9155165733e3"
 
+# ------------------------------------------------------------
+# 3) Auth helpers
+# ------------------------------------------------------------
+def login(email: str, password: str):
+    """Sign in user with email+password."""
+    return supabase.auth.sign_in_with_password({"email": email, "password": password})
+
+def signup(email: str, password: str, full_name: str = ""):
+    """Create new user (will trigger your SQL to create profile + subscription=free)."""
+    return supabase.auth.sign_up({
+        "email": email,
+        "password": password,
+        "options": {
+            "data": {"full_name": full_name}
+        }
+    })
+
+def get_subscription_plan(user_id: str) -> str:
+    """Return 'free' if no row, else the real plan."""
+    res = (
+        supabase.table("subscriptions")
+        .select("plan")
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if res.data and "plan" in res.data:
+        return res.data["plan"]
+    return "free"
+
+# ------------------------------------------------------------
+# 4) LOGIN GATE
+# ------------------------------------------------------------
+if "auth_session" not in st.session_state:
+    st.session_state["auth_session"] = None
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+
+if st.session_state["user"] is None:
+    st.title("🔐 Lab Solution Calculator (Login required)")
+
+    tab_login, tab_signup = st.tabs(["Login", "Sign up"])
+
+    with tab_login:
+        lemail = st.text_input("Email", key="login_email")
+        lpass = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            try:
+                auth_res = login(lemail, lpass)
+                st.session_state["auth_session"] = auth_res.session
+                st.session_state["user"] = auth_res.user
+                st.rerun()
+            except Exception as e:
+                st.error(f"Login failed: {e}")
+
+    with tab_signup:
+        semail = st.text_input("Email (for signup)", key="signup_email")
+        sname = st.text_input("Full name", key="signup_name")
+        spass = st.text_input("Password (min 6 chars)", type="password", key="signup_password")
+        if st.button("Create account"):
+            try:
+                sres = signup(semail, spass, sname)
+                st.success("Account created. Now login from the Login tab.")
+            except Exception as e:
+                st.error(f"Signup failed: {e}")
+
+    st.stop()  # 👈 do NOT show the app below
+
+# ------------------------------------------------------------
+# 5) USER IS LOGGED IN → CHECK SUBSCRIPTION
+# ------------------------------------------------------------
+user = st.session_state["user"]
+plan = get_subscription_plan(user.id)
+
+if plan != "pro":
+    st.title("🧪 Lab Solution Calculator")
+    st.warning("Your plan is **free**. This tool is for **Pro** users.")
+    st.info("Ask admin to upgrade you in Supabase → public.subscriptions, or connect Stripe later.")
+    st.stop()
+
 def load_reagents(user_id: str):
     data = (
         supabase.table("reagents")
